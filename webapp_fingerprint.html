@@ -1,0 +1,461 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Device Fingerprint Verification</title>
+    <!-- Telegram WebApp SDK -->
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <style>
+        :root {
+            --bg-color: var(--tg-theme-bg-color, #17212b);
+            --secondary-bg-color: var(--tg-theme-secondary-bg-color, #0e1621);
+            --text-color: var(--tg-theme-text-color, #f5f5f5);
+            --hint-color: var(--tg-theme-hint-color, #7f91a4);
+            --button-color: var(--tg-theme-button-color, #2b5278);
+            --button-text-color: var(--tg-theme-button-text-color, #ffffff);
+            --accent-color: #2481cc;
+            --success-color: #4caf50;
+            --card-bg: #1e2c3a;
+            --border-color: #2b3d4f;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            overflow-x: hidden;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 440px;
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 16px;
+            padding: 28px 24px;
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+            text-align: center;
+            transition: all 0.3s ease;
+        }
+
+        .icon-container {
+            width: 80px;
+            height: 80px;
+            margin: 0 auto 20px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: rgba(36, 129, 204, 0.1);
+            position: relative;
+        }
+
+        /* Spinner Animation */
+        .spinner {
+            width: 50px;
+            height: 50px;
+            border: 4px solid rgba(255, 255, 255, 0.1);
+            border-left-color: var(--accent-color);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* Checkmark Icon */
+        .checkmark {
+            display: none;
+            width: 44px;
+            height: 44px;
+            stroke-width: 3;
+            stroke: var(--success-color);
+            stroke-miterlimit: 10;
+            animation: fill .4s ease-in-out forwards, scale .3s ease-in-out .9s both;
+        }
+
+        .title {
+            font-size: 20px;
+            font-weight: 700;
+            margin-bottom: 10px;
+            color: var(--text-color);
+        }
+
+        .subtitle {
+            font-size: 14px;
+            color: var(--hint-color);
+            margin-bottom: 24px;
+            line-height: 1.5;
+        }
+
+        .progress-steps {
+            width: 100%;
+            background: var(--secondary-bg-color);
+            border-radius: 10px;
+            padding: 14px;
+            margin-bottom: 24px;
+            text-align: left;
+        }
+
+        .step-item {
+            display: flex;
+            align-items: center;
+            font-size: 13px;
+            color: var(--hint-color);
+            margin-bottom: 8px;
+            transition: color 0.3s;
+        }
+
+        .step-item:last-child {
+            margin-bottom: 0;
+        }
+
+        .step-item.active {
+            color: var(--text-color);
+            font-weight: 500;
+        }
+
+        .step-item.done {
+            color: var(--success-color);
+        }
+
+        .step-icon {
+            margin-right: 10px;
+            font-size: 14px;
+            width: 18px;
+            text-align: center;
+        }
+
+        .fingerprint-badge {
+            display: none;
+            background: var(--secondary-bg-color);
+            border: 1px dashed var(--border-color);
+            border-radius: 8px;
+            padding: 10px;
+            font-family: "Courier New", Courier, monospace;
+            font-size: 12px;
+            color: var(--accent-color);
+            word-break: break-all;
+            margin-bottom: 20px;
+        }
+
+        .btn {
+            display: none;
+            width: 100%;
+            padding: 14px;
+            border: none;
+            border-radius: 10px;
+            background-color: var(--button-color);
+            color: var(--button-text-color);
+            font-size: 15px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: opacity 0.2s;
+        }
+
+        .btn:active {
+            opacity: 0.8;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="icon-container" id="iconBox">
+            <div class="spinner" id="spinner"></div>
+            <svg class="checkmark" id="checkmark" viewBox="0 0 52 52">
+                <circle cx="26" cy="26" r="23" fill="none" stroke="#4caf50" stroke-width="4"/>
+                <path fill="none" d="M14.1 27.2l7.1 7.2 16.7-16.8"/>
+            </svg>
+        </div>
+
+        <h1 class="title" id="titleText">Проверка устройства</h1>
+        <p class="subtitle" id="subtitleText">Идет сбор цифрового отпечатка вашего устройства для обеспечения безопасности...</p>
+
+        <div class="progress-steps" id="progressSteps">
+            <div class="step-item active" id="step1">
+                <span class="step-icon">⏳</span>
+                <span>Сбор системных параметров...</span>
+            </div>
+            <div class="step-item" id="step2">
+                <span class="step-icon">⏳</span>
+                <span>Анализ Canvas & WebGL...</span>
+            </div>
+            <div class="step-item" id="step3">
+                <span class="step-icon">⏳</span>
+                <span>Генерация уникального отпечатка...</span>
+            </div>
+        </div>
+
+        <div class="fingerprint-badge" id="hashBadge"></div>
+
+        <button class="btn" id="closeBtn" onclick="closeWebApp()">Вернуться в бот</button>
+    </div>
+
+    <script>
+        // Initialize Telegram WebApp
+        const tg = window.Telegram?.WebApp;
+        if (tg) {
+            tg.ready();
+            tg.expand();
+        }
+
+        // Helper delay function
+        const delay = ms => new Promise(res => setTimeout(res, ms));
+
+        // 32-bit to 128-bit Combined Hex Hash function
+        function generateFingerprintHash(str) {
+            let h1 = 0xdeadbeef, h2 = 0x41c6ce57;
+            for (let i = 0; i < str.length; i++) {
+                let ch = str.charCodeAt(i);
+                h1 = Math.imul(h1 ^ ch, 2654435761);
+                h2 = Math.imul(h2 ^ ch, 1597334677);
+            }
+            h1 = Math.imul(h1 ^ (h1 >>> 16), 2246822507) ^ Math.imul(h2 ^ (h2 >>> 13), 3266489909);
+            h2 = Math.imul(h2 ^ (h2 >>> 16), 2246822507) ^ Math.imul(h1 ^ (h1 >>> 13), 3266489909);
+            
+            let h3 = 0x811c9dc5;
+            for (let i = 0; i < str.length; i++) {
+                h3 ^= str.charCodeAt(i);
+                h3 = Math.imul(h3, 16777619);
+            }
+
+            const p1 = (h1 >>> 0).toString(16).padStart(8, '0');
+            const p2 = (h2 >>> 0).toString(16).padStart(8, '0');
+            const p3 = (h3 >>> 0).toString(16).padStart(8, '0');
+            const p4 = ((h1 ^ h3) >>> 0).toString(16).padStart(8, '0');
+            return (p1 + p2 + p3 + p4).toLowerCase();
+        }
+
+        // 1. Canvas Fingerprint
+        function getCanvasFingerprint() {
+            try {
+                const canvas = document.createElement('canvas');
+                canvas.width = 240;
+                canvas.height = 60;
+                const ctx = canvas.getContext('2d');
+                if (!ctx) return 'unsupported';
+                
+                ctx.textBaseline = 'top';
+                ctx.font = "14px 'Arial'";
+                ctx.textBaseline = 'alphabetic';
+                ctx.fillStyle = '#f60';
+                ctx.fillRect(125, 1, 62, 20);
+                
+                ctx.fillStyle = '#069';
+                ctx.fillText('TelegramBotFP,🔒<canvas>#1', 2, 15);
+                ctx.fillStyle = 'rgba(102, 204, 0, 0.7)';
+                ctx.fillText('TelegramBotFP,🔒<canvas>#1', 4, 17);
+
+                ctx.shadowColor = 'rgba(0,0,0,0.5)';
+                ctx.shadowBlur = 4;
+                ctx.beginPath();
+                ctx.arc(50, 50, 10, 0, Math.PI * 2, true);
+                ctx.closePath();
+                ctx.fill();
+
+                return canvas.toDataURL();
+            } catch (e) {
+                return 'error';
+            }
+        }
+
+        // 2. WebGL Fingerprint
+        function getWebGLFingerprint() {
+            try {
+                const canvas = document.createElement('canvas');
+                const gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
+                if (!gl) return 'unsupported';
+
+                const debugInfo = gl.getExtension('WEBGL_debug_renderer_info');
+                const vendor = debugInfo ? gl.getParameter(debugInfo.UNMASKED_VENDOR_WEBGL) : gl.getParameter(gl.VENDOR);
+                const renderer = debugInfo ? gl.getParameter(debugInfo.UNMASKED_RENDERER_WEBGL) : gl.getParameter(gl.RENDERER);
+                const version = gl.getParameter(gl.VERSION);
+                const shadingLanguageVersion = gl.getParameter(gl.SHADING_LANGUAGE_VERSION);
+                const maxTextureSize = gl.getParameter(gl.MAX_TEXTURE_SIZE);
+
+                return `${vendor}|${renderer}|${version}|${shadingLanguageVersion}|${maxTextureSize}`;
+            } catch (e) {
+                return 'error';
+            }
+        }
+
+        // 3. Fonts Detection
+        function getAvailableFonts() {
+            const fontList = [
+                'Arial', 'Times New Roman', 'Courier New', 'Georgia', 'Palatino',
+                'Comic Sans MS', 'Impact', 'Trebuchet MS', 'Verdana', 'Monaco',
+                'Segoe UI', 'Tahoma', 'Helvetica', 'Consolas', 'Courier', 'Garamond'
+            ];
+            
+            try {
+                const canvas = document.createElement('canvas');
+                const ctx = canvas.getContext('2d');
+                if (!ctx) return fontList.slice(0, 5);
+
+                const baseFonts = ['monospace', 'sans-serif', 'serif'];
+                const testString = 'mmmmmmmmmlli';
+                const baseWidths = {};
+
+                for (const baseFont of baseFonts) {
+                    ctx.font = `72px ${baseFont}`;
+                    baseWidths[baseFont] = ctx.measureText(testString).width;
+                }
+
+                const available = [];
+                for (const font of fontList) {
+                    let detected = false;
+                    for (const baseFont of baseFonts) {
+                        ctx.font = `72px '${font}',${baseFont}`;
+                        const width = ctx.measureText(testString).width;
+                        if (width !== baseWidths[baseFont]) {
+                            detected = true;
+                            break;
+                        }
+                    }
+                    if (detected) available.push(font);
+                }
+                return available;
+            } catch (e) {
+                return fontList;
+            }
+        }
+
+        // Main Collection Function
+        async function collectAndSendFingerprint() {
+            try {
+                // Step 1: System info
+                updateStep('step1', 'done', '✓ Системные параметры собраны');
+                updateStep('step2', 'active', '⏳ Анализ Canvas & WebGL...');
+                await delay(300);
+
+                const userAgent = navigator.userAgent || '';
+                const platform = navigator.platform || navigator.userAgentData?.platform || 'unknown';
+                const screenResolution = `${window.screen.width}x${window.screen.height}`;
+                const colorDepth = window.screen.colorDepth || 24;
+                const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone || 'unknown';
+                const language = navigator.language || (navigator.languages && navigator.languages[0]) || 'unknown';
+                const hardwareConcurrency = navigator.hardwareConcurrency || 'unknown';
+                const deviceMemory = navigator.deviceMemory || 'unknown';
+                const touchSupport = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
+                const cookieEnabled = navigator.cookieEnabled;
+                const doNotTrack = navigator.doNotTrack || window.doNotTrack || 'unspecified';
+
+                // Step 2: Graphics / Fonts
+                const canvasData = getCanvasFingerprint();
+                const webglData = getWebGLFingerprint();
+                const fontsData = getAvailableFonts();
+                
+                updateStep('step2', 'done', '✓ Canvas & WebGL проанализированы');
+                updateStep('step3', 'active', '⏳ Генерация отпечатка...');
+                await delay(300);
+
+                // Build raw data payload
+                const rawData = {
+                    userAgent,
+                    platform,
+                    screenResolution,
+                    colorDepth,
+                    timezone,
+                    language,
+                    canvas: canvasData,
+                    webgl: webglData,
+                    fonts: fontsData,
+                    hardwareConcurrency,
+                    deviceMemory,
+                    touchSupport,
+                    cookieEnabled,
+                    doNotTrack
+                };
+
+                // Create unique hash string from key component representations
+                const hashComponents = [
+                    userAgent,
+                    platform,
+                    screenResolution,
+                    colorDepth,
+                    timezone,
+                    language,
+                    canvasData,
+                    webglData,
+                    fontsData.join(','),
+                    hardwareConcurrency,
+                    deviceMemory,
+                    touchSupport,
+                    cookieEnabled,
+                    doNotTrack
+                ].join('||');
+
+                const hash = generateFingerprintHash(hashComponents);
+
+                updateStep('step3', 'done', '✓ Отпечаток сформирован');
+                await delay(400);
+
+                const fullPayload = {
+                    fingerprint: hash,
+                    ...rawData
+                };
+
+                // Show success state UI
+                document.getElementById('spinner').style.display = 'none';
+                document.getElementById('checkmark').style.display = 'block';
+                document.getElementById('titleText').innerText = 'Устройство проверено';
+                document.getElementById('subtitleText').innerText = 'Данные авторизации отправлены боту.';
+                
+                const badge = document.getElementById('hashBadge');
+                badge.innerText = `ID: ${hash}`;
+                badge.style.display = 'block';
+                
+                document.getElementById('closeBtn').style.display = 'block';
+
+                // Send payload via Telegram WebApp SDK
+                if (tg && tg.sendData) {
+                    tg.sendData(JSON.stringify(fullPayload));
+                }
+
+            } catch (err) {
+                console.error('Error during fingerprinting:', err);
+                document.getElementById('subtitleText').innerText = 'Произошла ошибка при сборе данных: ' + err.message;
+            }
+        }
+
+        function updateStep(stepId, state, text) {
+            const el = document.getElementById(stepId);
+            if (!el) return;
+            el.className = `step-item ${state}`;
+            if (text) {
+                el.querySelector('span:last-child').innerText = text;
+            }
+            if (state === 'done') {
+                el.querySelector('.step-icon').innerText = '✓';
+            }
+        }
+
+        function closeWebApp() {
+            if (tg) {
+                tg.close();
+            }
+        }
+
+        // Start scanning after page loads
+        window.addEventListener('DOMContentLoaded', () => {
+            setTimeout(collectAndSendFingerprint, 400);
+        });
+    </script>
+</body>
+</html>
